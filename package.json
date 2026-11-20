@@ -1,0 +1,9 @@
+{
+  "name": "medical-schedule",
+  "version": "1.0.0",
+  "description": "Медицинское расписание с бонусами",
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}
