@@ -291,13 +291,21 @@ button{cursor:pointer}
 
 <script>
 const START=7,END=22,CELL=95,API="/.netlify/functions/schedule";
-let events=[], editing=null, audio=null, week=new Date();
+let events=[], editing=null, audio=null;
+
+// --- ИСПРАВЛЕНИЕ: Установка текущей даты на начало недели (Понедельник) ---
+let week = new Date();
+const currentDayOfWeek = week.getDay(); // 0 = Вс, 1 = Пн, ...
+const diffToMonday = (currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek);
+week.setDate(week.getDate() + diffToMonday);
+week.setHours(0, 0, 0, 0); // Сбрасываем время
+// -------------------------------------------------------------------------
+
 let alarmInterval = null, userInteracted = false, congratsShown = false;
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const days=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
 const months=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
 
-// Бонусы по умолчанию
 let bonuses = JSON.parse(localStorage.getItem("magicBonuses") || '[{"title":"Поиграть в телефон","link":""},{"title":"Съесть мороженое","link":""},{"title":"Мультики","link":"https://youtube.com"},{"title":"Погулять в парке","link":""}]');
 
 const COLORS = [
@@ -632,7 +640,6 @@ async function load() {
   const r = await fetch(API);
   if (!r.ok) throw Error();
   const d = await r.json();
-  // Загружаем ровно то, что пришло с сервера. Если пусто - будет пусто.
   events = Array.isArray(d.events) ? d.events : [];
 }
 async function save() {
@@ -841,7 +848,6 @@ document.onclick=e=>{
   stars(e.clientX,e.clientY);
 };
 
-// === СТАРТ (БЕЗ ДЕМО-ДАННЫХ) ===
 async function start(){
   buildColorSelect();
   weekRender();
