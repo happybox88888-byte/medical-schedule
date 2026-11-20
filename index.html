@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Медицинское расписание · Волшебный госпиталь</title>
+<style>
+:root{--cell:95px;--line:#cae7f4;--navy:#29405e}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;overflow:hidden;color:var(--navy);font-family:"Trebuchet MS","Segoe UI",Arial,sans-serif;background:linear-gradient(#e0f0fa,#d4ecf8 48%,#f0faff)}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.cloud-layer,.magic-background,.star-layer{position:fixed;inset:0;overflow:hidden;pointer-events:none}
+.cloud-layer{z-index:0}
+.magic-background{z-index:1}
+.star-layer{z-index:50}
+.cloud{position:absolute;left:-360px;width:180px;height:55px;border-radius:99px;background:rgba(255,255,255,.92);opacity:.72;box-shadow:40px -20px 0 10px #ffffffeB,94px -13px 0 17px #ffffffeB,140px 2px 0 5px #ffffffeB;animation:cloud var(--speed) linear infinite;animation-delay:var(--delay)}
+.cloud.small{opacity:.46}
+.cloud.large{opacity:.6}
+@keyframes cloud{from{transform:translateX(-360px) scale(var(--scale))}to{transform:translateX(calc(100vw + 520px)) scale(var(--scale))}}
+.magic-symbol{position:absolute;color:rgba(85,123,207,.2);font-size:var(--size);font-weight:900;animation:float var(--duration) ease-in-out infinite alternate}
+.magic-symbol.star{color:rgba(255,188,42,.65)}
+@keyframes float{to{transform:translate(var(--x),var(--y)) rotate(18deg)}}
+.click-star{position:fixed;z-index:51;color:var(--color);font-size:var(--size);pointer-events:none;text-shadow:0 0 8px var(--color);animation:burst .9s ease-out forwards}
+@keyframes burst{from{opacity:1;transform:translate(-50%,-50%) scale(.3)}to{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) scale(1.3) rotate(180deg)}}
+
+.app{position:relative;z-index:5;width:min(1260px,calc(100vw - 30px));margin:10px auto}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:14px;flex-wrap:wrap;}
+
+.title-area{display:flex;flex-direction:column;gap:10px;flex:1;min-width:280px;}
+.title-top{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+.app-title{margin:0;font-size:clamp(26px,4vw,38px);font-weight:900;text-shadow:0 2px white;}
+.app-subtitle{color:#47789b;font-size:15px;font-weight:800;}
+
+.progress-wrapper{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,0.7);padding:6px 16px;border-radius:20px;
+  border:2px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.05);
+  font-weight:900;font-size:14px;color:#23618c;position:relative;
+}
+.progress-bar-bg{width:150px;height:12px;background:#d4e9f3;border-radius:10px;overflow:hidden;position:relative;}
+.progress-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#aee69c,#18e8ff);border-radius:10px;transition:width 0.5s ease-out;}
+
+.gift-btn {
+  background: none; border: none; font-size: 22px; cursor: pointer;
+  padding: 0 5px; transition: transform 0.2s;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+}
+.gift-btn:hover { transform: scale(1.15) rotate(5deg); }
+
+.week-controls{display:flex;align-items:center;gap:10px}
+.nav-btn,.week-label{height:48px;border:3px solid white;border-radius:17px;box-shadow:0 5px 0 #5082a026}
+.nav-btn{width:52px;color:#23618c;background:#e3f7ff;font-size:28px;font-weight:900}
+.week-label{display:flex;align-items:center;min-width:210px;padding:0 18px;background:white;font-weight:900}
+.calendar-shell{padding:8px;overflow:hidden;border:4px solid #ffffffe0;border-radius:28px;background:#ffffffe0;box-shadow:0 13px 28px #3171932e}
+.calendar-wrap{height:calc(100vh - 150px);overflow:auto;border-radius:20px}
+.calendar{min-width:960px;display:grid;grid-template-columns:82px repeat(7,minmax(126px,1fr))}
+.corner,.day-head{position:sticky;top:0;z-index:10;height:68px;background:#f6fdfff7}
+.corner{border-bottom:2px solid var(--line)}
+.day-head{display:flex;align-items:center;justify-content:center;padding:9px 37px 9px 7px;color:#47708e;text-align:center;font-size:15px;font-weight:900;border-bottom:2px solid var(--line);border-right:1px solid var(--line)}
+.day-head.today{background:#ddf4ff}
+.header-plus{position:absolute;top:7px;right:7px;width:27px;height:27px;border:2px solid white;border-radius:50%;color:#21779f;background:#bff2ff;font-size:21px;font-weight:900}
+.time-column,.day-column{
+  position:relative;
+  height:calc(var(--cell) * 15);
+  background-image:linear-gradient(to bottom,var(--line) 0 1px,transparent 1px);
+  background-size:100% var(--cell);
+}
+.time-column{border-right:1px solid var(--line);background-color:#effaffeb}
+.day-column{border-right:1px solid var(--line);background-color:#ffffffcc}
+.day-column.today{background-color:#e9f8fff2}
+.half-line{position:absolute;left:0;right:0;height:1px;background:var(--line);opacity:.35;pointer-events:none}
+.time-label{position:absolute;left:0;right:0;height:var(--cell);display:flex;align-items:flex-start;justify-content:center;padding-top:2px;color:#5080a0;font-size:13px;font-weight:900}
+.event{position:absolute;right:6px;left:6px;padding:8px;overflow:hidden;border:0;border-radius:14px;outline:2px solid #ffffffe6;outline-offset:-2px;cursor:pointer;box-sizing:border-box}
+.event-title{padding-right:28px;font-size:14px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.event-time{margin-top:2px;color:#28405e;font-size:11px;font-weight:900;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.event-description{margin-top:3px;color:#4f6278;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.event-footer{position:absolute;right:7px;bottom:6px;left:7px;display:flex;justify-content:space-between;align-items:center}
+.event-link{padding:5px 10px;border:2px solid white;border-radius:9px;color:#1c648b;background:#ffffffd6;font-size:13px;font-weight:900;line-height:1;text-decoration:none}
+.event-repeat{font-size:16px}
+
+.event-bonus { background: linear-gradient(135deg, #ffd700, #ffaa00); outline-color: #fff; box-shadow: 0 0 15px rgba(255, 215, 0, 0.6); animation: pulse 2s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 5px #ffd700; } 50% { box-shadow: 0 0 20px #ffaa00; } 100% { box-shadow: 0 0 5px #ffd700; } }
+
+.event-school{background:#bcecff}.event-sky{background:#a8dcff}.event-sea{background:#9fe6d8}.event-aqua{background:#b3e8f0}.event-cyan{background:#b3e0f2}
+.event-sport{background:#caefb9}.event-mint{background:#b9f2e4}.event-lime{background:#dff29b}.event-olive{background:#c4cc6b}.event-forest{background:#a3c9a8}
+.event-creative{background:#ddd0ff}.event-lavender{background:#e6d6ff}.event-lilac{background:#f0d6f2}.event-violet{background:#d6b8f0}.event-indigo{background:#b8b8f0}
+.event-music{background:#ffe68a}.event-lemon{background:#f6f7a8}.event-peach{background:#ffd9b3}.event-gold{background:#ffd966}.event-sunflower{background:#ffe066}
+.event-home{background:#ffc4b3}.event-other{background:#ffd0df}.event-red{background:#ffb3b3}.event-crimson{background:#ff9e9e}.event-salmon{background:#ffb8a8}
+.event-coral{background:#ffaaa5}.event-tomato{background:#ff8b7b}.event-watermelon{background:#ff9ea8}.event-fuchsia{background:#f97dbf}.event-hotpink{background:#ff69b4}
+.event-tangerine{background:#ffb380}.event-apricot{background:#ffcc99}.event-wheat{background:#f5deb3}.event-cream{background:#fffdd0}.event-champagne{background:#f7e7ce}
+.event-sage{background:#b2c2a4}.event-emerald{background:#50c878}.event-jade{background:#a6e2c1}.event-seafoam{background:#9ee5c9}.event-turquoise{background:#a0e0d6}
+.event-azure{background:#b8dcf5}.event-sapphire{background:#a0b8f0}.event-plum{background:#d6b8e0}.event-orchid{background:#e6b8df}.event-mauve{background:#e0b0ff}
+.event-terracotta{background:#e8a87c}.event-sand{background:#e6d3a3}.event-magenta{background:#f2b3d9}.event-pink{background:#ffcce0}.event-rose{background:#ffb3c6}
+.event-slate{background:#c9d1d9}.event-teal{background:#9fd6c9}
+
+.complete-label{position:absolute;top:6px;right:6px;z-index:5;width:24px;height:24px;cursor:pointer}
+.complete-checkbox{position:absolute;opacity:0}
+.complete-mark{display:grid;width:22px;height:22px;place-items:center;border:2px solid #6ea4c2;border-radius:7px;color:transparent;background:#ffffffd1;font-weight:900;font-size:14px;cursor:pointer}
+.complete-checkbox:checked+.complete-mark{color:#066c82;background:#c6faff;box-shadow:0 0 7px #18e8ff}
+.event.completed{outline-color:#18e8ff;outline-width:3px;box-shadow:0 0 12px #18e8ff;opacity:0.8}
+.event.completed .event-title{text-decoration:line-through}
+.now-line{position:absolute;right:0;left:0;z-index:4;height:3px;background:#ee6574;pointer-events:none}
+.now-label{position:absolute;top:-18px;left:-69px;padding:7px 9px;border:2px solid white;border-radius:18px;color:#8c3141;background:#ffe1e6;font-size:12px;font-weight:900}
+
+.modal{position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;padding:20px;background:#265c7a73}
+.modal.open{display:flex}
+.modal-card{width:min(520px,100%);max-height:calc(100vh - 40px);overflow:auto;padding:24px;border:5px solid white;border-radius:28px;background:#f9feff}
+.modal-header{display:flex;justify-content:space-between;align-items:center}
+.modal-header h2{color:#2578a5;margin:0}
+.close{width:40px;height:40px;border:0;border-radius:50%;font-size:28px}
+.form-row{display:grid;gap:13px}
+.form-row label{display:grid;gap:6px;color:#4f647b;font-weight:900}
+.form-row input,.form-row select,.form-row textarea{padding:12px;border:2px solid #d4e9f3;border-radius:14px}
+.form-row textarea{min-height:74px}
+#eventColor{
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f647b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat:no-repeat;background-position:right 12px center;background-size:16px;
+  padding-right:38px;
+}
+.repeat-row{display:flex!important;align-items:center;padding:13px;border-radius:15px;background:#eaf9df}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:19px}
+.save,.cancel,.delete{padding:12px 18px;border:3px solid white;border-radius:14px;font-weight:900}
+.save{background:#aee69c}
+.cancel{background:#eaf0f5}
+.delete{margin-right:auto;background:#ffc8d1}
+
+.bonus-modal { z-index: 60; }
+.bonus-list { display:flex; flex-direction:column; gap:10px; margin-top:15px; max-height:250px; overflow-y:auto; }
+.bonus-item { display:flex; justify-content:space-between; align-items:center; background:#eaf9df; padding:10px 15px; border-radius:10px; font-weight:900; }
+.bonus-item-content { display:flex; flex-direction:column; }
+.bonus-item-link { font-size:11px; color:#1c648b; text-decoration:underline; margin-top:2px; font-weight:normal;}
+.bonus-item button { background:#ffc8d1; border:2px solid white; border-radius:8px; padding:4px 8px; cursor:pointer; }
+
+.survey-modal { z-index: 70; }
+.survey-question { font-size:16px; font-weight:900; margin-bottom:15px; color:#29405e; }
+.survey-buttons { display:flex; gap:10px; }
+.survey-btn { flex:1; padding:12px; font-size:18px; font-weight:900; border:3px solid white; border-radius:12px; cursor:pointer; }
+.survey-btn.yes { background:#ffc8d1; }
+.survey-btn.no { background:#aee69c; }
+
+.congrats-overlay{
+  position:fixed;inset:0;z-index:100;display:none;flex-direction:column;
+  align-items:center;justify-content:center;background:rgba(255,255,255,0.85);
+  backdrop-filter:blur(5px);text-align:center;padding:20px;
+}
+.congrats-overlay.show{display:flex;animation:fadeIn 0.5s ease-out;}
+.congrats-title{font-size:clamp(30px,6vw,60px);color:#ff8c00;text-shadow:2px 2px 0 white, 0 0 20px #ffd700;margin-bottom:20px;font-weight:900;animation:pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);}
+.congrats-subtitle{font-size:24px;color:#29405e;margin-bottom:30px;font-weight:900;}
+.congrats-btn{padding:15px 30px;font-size:20px;font-weight:900;border-radius:30px;border:4px solid white;background:#aee69c;color:#29405e;box-shadow:0 5px 15px rgba(0,0,0,0.2);cursor:pointer;}
+.congrats-btn:hover{transform:scale(1.05);}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
+
+@media(max-width:760px){.toolbar{align-items:flex-start;flex-direction:column}.week-controls{width:100%}.week-label{flex:1;justify-content:center}}
+</style>
+</head>
+<body>
+<div class="cloud-layer"><div class="cloud" style="top:7%;--speed:82s;--delay:-25s;--scale:1"></div><div class="cloud small" style="top:25%;--speed:64s;--delay:-42s;--scale:.65"></div><div class="cloud large" style="top:52%;--speed:104s;--delay:-68s;--scale:1.35"></div><div class="cloud small" style="top:77%;--speed:74s;--delay:-17s;--scale:.75"></div></div><div class="magic-background" id="magicBackground"></div><div class="star-layer" id="starLayer"></div>
+
+<main class="app">
+  <header class="toolbar">
+    <div class="title-area">
+      <div class="title-top">
+        <h1 class="app-title">🩺 Медицинское расписание</h1>
+        <div class="progress-wrapper" id="progressBox" style="display:none;">
+          <span>Выполнено:</span>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressFill"></div>
+          </div>
+          <span id="progressText">0/0</span>
+          <button class="gift-btn" id="openSecretModal" title="Копилка бонусов">🎁</button>
+        </div>
+      </div>
+      <div class="app-subtitle">Учимся, лечим и становимся здоровее каждый день! 💊✨</div>
+    </div>
+    <div class="week-controls">
+      <button class="nav-btn" id="prevWeek">←</button>
+      <div class="week-label">📅 <span id="weekLabel"></span></div>
+      <button class="nav-btn" id="nextWeek">→</button>
+    </div>
+  </header>
+  <section class="calendar-shell">
+    <div class="calendar-wrap">
+      <div class="calendar">
+        <div class="corner"></div>
+        <div class="day-head" data-day="0"><span class="day-title"></span><button class="header-plus" data-day="0">+</button></div>
+        <div class="day-head" data-day="1"><span class="day-title"></span><button class="header-plus" data-day="1">+</button></div>
+        <div class="day-head" data-day="2"><span class="day-title"></span><button class="header-plus" data-day="2">+</button></div>
+        <div class="day-head" data-day="3"><span class="day-title"></span><button class="header-plus" data-day="3">+</button></div>
+        <div class="day-head" data-day="4"><span class="day-title"></span><button class="header-plus" data-day="4">+</button></div>
+        <div class="day-head" data-day="5"><span class="day-title"></span><button class="header-plus" data-day="5">+</button></div>
+        <div class="day-head" data-day="6"><span class="day-title"></span><button class="header-plus" data-day="6">+</button></div>
+        <div class="time-column" id="timeColumn"></div>
+        <div class="day-column" data-day="0"></div>
+        <div class="day-column" data-day="1"></div>
+        <div class="day-column" data-day="2"></div>
+        <div class="day-column" data-day="3"></div>
+        <div class="day-column" data-day="4"></div>
+        <div class="day-column" data-day="5"></div>
+        <div class="day-column" data-day="6"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Модалка: Секретное меню бонусов -->
+<div class="modal" id="passwordModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>🔒 Код доступа (родитель)</h2>
+      <button class="close" id="closePassword">×</button>
+    </div>
+    <div class="form-row" style="margin-top:15px;">
+      <label>Введите код родителя<input id="secretCode" type="password" placeholder="****"></label>
+    </div>
+    <div class="modal-actions">
+      <button class="save" id="checkCode">Войти</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal bonus-modal" id="bonusModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>🎁 Копилка бонусов</h2>
+      <button class="close" id="closeBonus">×</button>
+    </div>
+    <p style="font-size:13px; color:#666;">Добавьте приятные сюрпризы (и ссылки). Когда все задания выполнены и пройден опрос, программа случайно выберет один и добавит в расписание на 21:30.</p>
+    
+    <div class="bonus-list" id="bonusList"></div>
+    
+    <div class="form-row" style="margin-top:15px; border-top:2px dashed #cae7f4; padding-top:15px;">
+      <label>Название бонуса<input id="newBonusTitle" placeholder="Напр. Мультики"></label>
+      <label>Ссылка (необязательно)<input id="newBonusLink" type="url" placeholder="https://..."></label>
+      <button class="save" id="addBonusBtn" style="padding:10px 15px; margin-top:5px;">Добавить в копилку</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка опроса -->
+<div class="modal survey-modal" id="surveyModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>🤔 Самопроверка</h2>
+    </div>
+    <div id="surveyContent"></div>
+  </div>
+</div>
+
+<!-- Модалка события -->
+<div class="modal" id="eventModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 id="modalTitle">✨ Новое занятие</h2>
+      <button class="close" id="closeModal">×</button>
+    </div>
+    <div class="form-row">
+      <label>Название<input id="eventTitle"></label>
+      <label>Описание<textarea id="eventDescription"></textarea></label>
+      <label>Ссылка<input id="eventLink" type="url"></label>
+      <label>День<select id="eventDay">
+        <option value="0">Понедельник</option>
+        <option value="1">Вторник</option>
+        <option value="2">Среда</option>
+        <option value="3">Четверг</option>
+        <option value="4">Пятница</option>
+        <option value="5">Суббота</option>
+        <option value="6">Воскресенье</option>
+      </select></label>
+      <label>Начало<input id="eventStart" type="time" value="09:00"></label>
+      <label>Окончание<input id="eventEnd" type="time" value="10:00"></label>
+      <label>Цвет<select id="eventColor"></select></label>
+      <label class="repeat-row"><input id="eventRepeat" type="checkbox">🔁 Повторять еженедельно</label>
+    </div>
+    <div class="modal-actions">
+      <button class="delete" id="deleteEvent">🗑 Удалить</button>
+      <button class="cancel" id="cancelModal">Отмена</button>
+      <button class="save" id="saveEvent">🌟 Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Поздравление -->
+<div class="congrats-overlay" id="congratsOverlay">
+  <div class="congrats-title" id="congratsTitle">🎉 Здорово! 🎉</div>
+  <div class="congrats-subtitle" id="bonusMessage"></div>
+  <button class="congrats-btn" id="closeCongrats">Ура! 🚀</button>
+</div>
+
+<script>
+const START=7,END=22,CELL=95,API="/.netlify/functions/schedule";
+let events=[], editing=null, audio=null, week=new Date(2026,8,14);
+let alarmInterval = null, userInteracted = false, congratsShown = false;
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const days=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+const months=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+
+let bonuses = JSON.parse(localStorage.getItem("magicBonuses") || '[{"title":"Поиграть в телефон","link":""},{"title":"Съесть мороженое","link":""},{"title":"Мультики","link":"https://youtube.com"},{"title":"Погулять в парке","link":""}]');
+
+const COLORS = [
+  {key:"school", label:"Голубой", dot:"#bcecff"}, {key:"sky", label:"Небесный", dot:"#a8dcff"},
+  {key:"sea", label:"Морская волна", dot:"#9fe6d8"}, {key:"aqua", label:"Аквамарин", dot:"#b3e8f0"},
+  {key:"cyan", label:"Циан", dot:"#b3e0f2"}, {key:"sport", label:"Зелёный", dot:"#caefb9"},
+  {key:"mint", label:"Мятный", dot:"#b9f2e4"}, {key:"lime", label:"Лаймовый", dot:"#dff29b"},
+  {key:"olive", label:"Оливковый", dot:"#c4cc6b"}, {key:"forest", label:"Лесной", dot:"#a3c9a8"},
+  {key:"creative", label:"Фиолетовый", dot:"#ddd0ff"}, {key:"lavender", label:"Лавандовый", dot:"#e6d6ff"},
+  {key:"lilac", label:"Сиреневый", dot:"#f0d6f2"}, {key:"violet", label:"Виолет", dot:"#d6b8f0"},
+  {key:"indigo", label:"Индиго", dot:"#b8b8f0"}, {key:"music", label:"Жёлтый", dot:"#ffe68a"},
+  {key:"lemon", label:"Лимонный", dot:"#f6f7a8"}, {key:"peach", label:"Персиковый", dot:"#ffd9b3"},
+  {key:"gold", label:"Золотой", dot:"#ffd966"}, {key:"sunflower", label:"Подсолнечный", dot:"#ffe066"},
+  {key:"home", label:"Коралловый", dot:"#ffc4b3"}, {key:"other", label:"Розовый", dot:"#ffd0df"},
+  {key:"red", label:"Красный", dot:"#ffb3b3"}, {key:"crimson", label:"Малиновый", dot:"#ff9e9e"},
+  {key:"salmon", label:"Лососевый", dot:"#ffb8a8"}, {key:"coral", label:"Коралловый (яркий)", dot:"#ffaaa5"},
+  {key:"tomato", label:"Томатный", dot:"#ff8b7b"}, {key:"watermelon", label:"Арбузный", dot:"#ff9ea8"},
+  {key:"fuchsia", label:"Фуксия", dot:"#f97dbf"}, {key:"hotpink", label:"Ярко-розовый", dot:"#ff69b4"},
+  {key:"tangerine", label:"Мандариновый", dot:"#ffb380"}, {key:"apricot", label:"Абрикосовый", dot:"#ffcc99"},
+  {key:"wheat", label:"Пшеничный", dot:"#f5deb3"}, {key:"cream", label:"Кремовый", dot:"#fffdd0"},
+  {key:"champagne", label:"Шампань", dot:"#f7e7ce"}, {key:"sage", label:"Шалфей", dot:"#b2c2a4"},
+  {key:"emerald", label:"Изумрудный", dot:"#50c878"}, {key:"jade", label:"Нефрит", dot:"#a6e2c1"},
+  {key:"seafoam", label:"Морская пена", dot:"#9ee5c9"}, {key:"turquoise", label:"Бирюзовый", dot:"#a0e0d6"},
+  {key:"azure", label:"Лазурный", dot:"#b8dcf5"}, {key:"sapphire", label:"Сапфировый", dot:"#a0b8f0"},
+  {key:"plum", label:"Сливовый", dot:"#d6b8e0"}, {key:"orchid", label:"Орхидея", dot:"#e6b8df"},
+  {key:"mauve", label:"Розово-лиловый", dot:"#e0b0ff"}, {key:"terracotta", label:"Терракотовый", dot:"#e8a87c"},
+  {key:"sand", label:"Песочный", dot:"#e6d3a3"}, {key:"magenta", label:"Пурпурный", dot:"#f2b3d9"},
+  {key:"pink", label:"Бледно-розовый", dot:"#ffcce0"}, {key:"rose", label:"Розово-красный", dot:"#ffb3c6"},
+  {key:"slate", label:"Серо-синий", dot:"#c9d1d9"}, {key:"teal", label:"Бирюзовый (тёмный)", dot:"#9fd6c9"}
+];
+
+const mins=t=>{const[a,b]=t.split(":").map(Number);return a*60+b};
+const makeId=()=>Date.now()+"-"+Math.random().toString(16).slice(2);
+const esc=v=>{const e=document.createElement("div");e.textContent=v||"";return e.innerHTML};
+const safeUrl=v=>{try{const u=new URL(v);return/^https?:$/.test(u.protocol)?u.href:""}catch{return""}};
+
+// === ОПРОС ===
+let surveyStep = 0;
+
+function startSurvey() {
+  surveyStep = 1;
+  renderSurvey();
+  $("#surveyModal").classList.add("open");
+}
+
+function renderSurvey() {
+  const content = $("#surveyContent");
+  if (surveyStep === 1) {
+    content.innerHTML = `
+      <div class="survey-question">У тебя есть тройки в школе?</div>
+      <div class="survey-buttons">
+        <button class="survey-btn yes" onclick="answerSurvey('yes')">Да</button>
+        <button class="survey-btn no" onclick="answerSurvey('no')">Нет</button>
+      </div>
+    `;
+  } else if (surveyStep === 2) {
+    content.innerHTML = `
+      <div class="survey-question">У тебя есть долги в Олмат (кроме последней домашки)?</div>
+      <div class="survey-buttons">
+        <button class="survey-btn yes" onclick="answerSurvey('yes')">Да</button>
+        <button class="survey-btn no" onclick="answerSurvey('no')">Нет</button>
+      </div>
+    `;
+  }
+}
+
+function answerSurvey(ans) {
+  playClickSound();
+  if (ans === 'yes') {
+    $("#surveyModal").classList.remove("open");
+    showCongrats("Все задачи выполнены, но есть нерешенные вопросы. Исправь их, и завтра получишь бонус!", false);
+    return;
+  }
+  
+  if (surveyStep === 1) {
+    surveyStep = 2;
+    renderSurvey();
+  } else if (surveyStep === 2) {
+    $("#surveyModal").classList.remove("open");
+    giveBonus();
+  }
+}
+
+window.answerSurvey = answerSurvey;
+
+// === СЕКРЕТНАЯ ЛОГИКА БОНУСОВ ===
+$("#openSecretModal").onclick = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  initAudio();
+  $("#secretCode").value = "";
+  $("#passwordModal").classList.add("open");
+};
+
+$("#checkCode").onclick = () => {
+  playClickSound();
+  if ($("#secretCode").value === "0609") {
+    $("#passwordModal").classList.remove("open");
+    renderBonusList();
+    $("#bonusModal").classList.add("open");
+  } else {
+    alert("Неверный код!");
+  }
+};
+
+$("#closePassword").onclick = () => { $("#passwordModal").classList.remove("open"); playClickSound(); };
+$("#closeBonus").onclick = () => { $("#bonusModal").classList.remove("open"); playClickSound(); };
+
+function renderBonusList() {
+  const list = $("#bonusList");
+  list.innerHTML = "";
+  if (bonuses.length === 0) {
+    list.innerHTML = "<div style='color:#888;'>Копилка пуста. Добавьте бонусы!</div>";
+    return;
+  }
+  bonuses.forEach((b, i) => {
+    const div = document.createElement("div");
+    div.className = "bonus-item";
+    const linkHtml = b.link ? `<a class="bonus-item-link" href="${esc(b.link)}" target="_blank">🔗 Ссылка</a>` : '';
+    div.innerHTML = `<div class="bonus-item-content"><span>${esc(b.title)}</span>${linkHtml}</div><button data-i="${i}">×</button>`;
+    list.appendChild(div);
+  });
+  list.querySelectorAll("button").forEach(btn => {
+    btn.onclick = () => {
+      bonuses.splice(+btn.dataset.i, 1);
+      localStorage.setItem("magicBonuses", JSON.stringify(bonuses));
+      renderBonusList();
+      playClickSound();
+    };
+  });
+}
+
+$("#addBonusBtn").onclick = () => {
+  const title = $("#newBonusTitle").value.trim();
+  const link = $("#newBonusLink").value.trim();
+  if(title) {
+    bonuses.push({ title: title, link: link });
+    localStorage.setItem("magicBonuses", JSON.stringify(bonuses));
+    $("#newBonusTitle").value = "";
+    $("#newBonusLink").value = "";
+    renderBonusList();
+    playClickSound();
+  }
+};
+
+// === АУДИО ===
+function initAudio() {
+  if (!audio) {
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (C) audio = new C();
+  }
+  if (audio && audio.state === "suspended") audio.resume();
+  if (!userInteracted) {
+    userInteracted = true;
+    if (!alarmInterval) alarmInterval = setInterval(checkAlarms, 1000);
+    updateProgress();
+  }
+}
+
+function playClickSound() {
+  if (!audio || audio.state === "suspended") return;
+  const n = audio.currentTime;
+  const g = audio.createGain();
+  g.connect(audio.destination);
+  g.gain.setValueAtTime(0.1, n);
+  g.gain.exponentialRampToValueAtTime(0.0001, n + 0.1);
+  const osc = audio.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(800, n);
+  osc.frequency.exponentialRampToValueAtTime(1200, n + 0.1);
+  osc.connect(g);
+  osc.start(n);
+  osc.stop(n + 0.1);
+}
+
+function playAlarm() {
+  if (!audio || audio.state === "suspended") return;
+  const n = audio.currentTime;
+  const g = audio.createGain();
+  g.connect(audio.destination);
+  g.gain.setValueAtTime(0.0001, n);
+  g.gain.linearRampToValueAtTime(0.45, n + 0.5); 
+  
+  const notes = [523.25, 659.25, 783.99, 1046.50];
+  let t = n;
+  for (let i = 0; i < 35; i++) {
+    notes.forEach((freq) => {
+      const osc = audio.createOscillator();
+      const oscGain = audio.createGain();
+      osc.type = "sine"; osc.frequency.value = freq;
+      osc.connect(oscGain); oscGain.connect(g);
+      oscGain.gain.setValueAtTime(0.0001, t);
+      oscGain.gain.exponentialRampToValueAtTime(0.45, t + 0.05);
+      oscGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      osc.start(t); osc.stop(t + 0.35); t += 0.4;
+    });
+  }
+  g.gain.setValueAtTime(0.45, n + 14.5);
+  g.gain.exponentialRampToValueAtTime(0.0001, n + 15.0);
+}
+
+function playFanfare() {
+  if (!audio || audio.state === "suspended") return;
+  const n = audio.currentTime;
+  const g = audio.createGain();
+  g.connect(audio.destination);
+  g.gain.setValueAtTime(0.0001, n);
+  g.gain.linearRampToValueAtTime(0.4, n + 0.1);
+  g.gain.exponentialRampToValueAtTime(0.0001, n + 3.0);
+  const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+  let t = n;
+  notes.forEach((freq, i) => {
+    const osc = audio.createOscillator();
+    const oscGain = audio.createGain();
+    osc.type = "triangle"; osc.frequency.value = freq;
+    osc.connect(oscGain); oscGain.connect(g);
+    oscGain.gain.setValueAtTime(0.0001, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.3, t + 0.05);
+    oscGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    osc.start(t); osc.stop(t + 0.5); t += 0.15;
+  });
+}
+
+function checkAlarms() {
+  if (!events.length || !userInteracted) return;
+  const now = new Date();
+  const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  const currentMins = now.getHours() * 60 + now.getMinutes();
+  events.forEach(ev => {
+    if (+ev.day !== currentDay) return;
+    const st = mins(ev.start), en = mins(ev.end);
+    if (currentMins === st || currentMins === en) {
+      const lastPlayed = localStorage.getItem("lastAlarm_" + ev.id + "_" + currentMins);
+      if (lastPlayed !== "true") {
+        playAlarm();
+        localStorage.setItem("lastAlarm_" + ev.id + "_" + currentMins, "true");
+      }
+    }
+  });
+}
+
+// === ПРОГРЕСС И БОНУС ===
+function updateProgress() {
+  const progressBox = $("#progressBox");
+  const now = new Date();
+  const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  const todayEvents = events.filter(e => +e.day === currentDay && !e.isBonus);
+  
+  if (todayEvents.length === 0) {
+    progressBox.style.display = "none";
+    return;
+  }
+  
+  progressBox.style.display = "flex";
+  const total = todayEvents.length;
+  const completed = todayEvents.filter(e => e.completed).length;
+  
+  const percent = Math.round((completed / total) * 100);
+  $("#progressFill").style.width = percent + "%";
+  $("#progressText").textContent = `${completed}/${total}`;
+
+  if (completed === total && total > 0 && !congratsShown) {
+    congratsShown = true;
+    setTimeout(startSurvey, 500);
+  } else if (completed < total) {
+    congratsShown = false;
+  }
+}
+
+function giveBonus() {
+  const now = new Date();
+  const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  
+  let bonusText = "Все задачи на день выполнены!";
+  if (bonuses.length > 0) {
+    const randomBonus = bonuses[Math.floor(Math.random() * bonuses.length)];
+    const bonusEvent = {
+      id: makeId(),
+      title: "🎁 Бонус: " + randomBonus.title,
+      description: "Заслуженная награда!",
+      start: "21:30", 
+      end: "22:00",   
+      day: currentDay,
+      color: "bonus",
+      isBonus: true,
+      link: randomBonus.link,
+      completed: false
+    };
+    events.push(bonusEvent);
+    save().then(() => eventsRender());
+    bonusText = `А ещё тебя ждет бонус: <br><span style="color:#d35400">${esc(randomBonus.title)}</span> (в 21:30)`;
+  }
+  
+  showCongrats(bonusText, true);
+}
+
+function showCongrats(msg, isSuccess) {
+  if (isSuccess) playFanfare();
+  
+  const overlay = $("#congratsOverlay");
+  const title = $("#congratsTitle");
+  
+  if (isSuccess) {
+    title.innerHTML = "🎉 Здорово! 🎉";
+    title.style.color = "#ff8c00";
+    overlay.classList.add("show");
+    
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    let count = 0;
+    const interval = setInterval(() => {
+      stars(cx + (Math.random() - 0.5) * 600, cy + (Math.random() - 0.5) * 400, 20);
+      if (++count > 10) clearInterval(interval);
+    }, 150);
+  } else {
+    title.innerHTML = "Почти получилось!";
+    title.style.color = "#29405e";
+    overlay.classList.add("show");
+  }
+  
+  $("#bonusMessage").innerHTML = msg;
+}
+
+$("#closeCongrats").onclick = () => {
+  $("#congratsOverlay").classList.remove("show");
+  playClickSound();
+};
+
+// === ОСНОВНАЯ ЛОГИКА ===
+function buildColorSelect(){
+  const sel=$("#eventColor");
+  sel.innerHTML="";
+  COLORS.forEach(c=>{
+    const o=document.createElement("option");
+    o.value=c.key;
+    o.textContent="● "+c.label;
+    o.style.color="#29405e";
+    o.style.background=c.dot;
+    sel.appendChild(o);
+  });
+  sel.addEventListener("change",()=>{
+    const c=COLORS.find(x=>x.key===sel.value);
+    if(c) sel.style.background=c.dot;
+    playClickSound();
+  });
+}
+
+async function load(){const r=await fetch(API);if(!r.ok)throw Error();const d=await r.json();events=Array.isArray(d.events)?d.events:[]}
+async function save(){const r=await fetch(API,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({events})});if(!r.ok)throw Error()}
+
+function stars(x,y,n=14){const l=$("#starLayer"),c=["#ffd64b","#ff9f43","#6ad8ff","#c7b1ff","#ff8bb5"],s=["★","✦","✧","🌟"];for(let i=0;i<n;i++){const a=2*Math.PI*i/n,d=30+Math.random()*50,e=document.createElement("span");e.className="click-star";e.textContent=s[i%4];e.style.left=x+"px";e.style.top=y+"px";e.style.setProperty("--x",Math.cos(a)*d+"px");e.style.setProperty("--y",Math.sin(a)*d+"px");e.style.setProperty("--color",c[i%c.length]);e.style.setProperty("--size",14+Math.random()*13+"px");l.appendChild(e);setTimeout(()=>e.remove(),900)}}
+
+function background(){const c=$("#magicBackground"),s=["1","2","3","4","5","6","+","−","×","÷","=","★","✦","✧","🌟","💊","🩺","💉","❤️","🫀"];for(let i=0;i<34;i++){const v=s[Math.floor(Math.random()*s.length)],e=document.createElement("span");e.className="magic-symbol "+(/[★✦✧🌟💊🩺💉❤️🫀]/.test(v)?"star":"");e.textContent=v;e.style.left=Math.random()*100+"%";e.style.top=Math.random()*100+"%";e.style.setProperty("--size",15+Math.random()*24+"px");e.style.setProperty("--duration",5+Math.random()*8+"s");e.style.setProperty("--x",-30+Math.random()*60+"px");e.style.setProperty("--y",-35+Math.random()*70+"px");c.appendChild(e)}}
+
+function times(){
+  const c=$("#timeColumn");c.innerHTML="";
+  for(let h=START;h<=END;h++){
+    const e=document.createElement("div");
+    e.className="time-label";
+    e.style.top=Math.round((h-START)*CELL)+"px";
+    e.textContent=String(h).padStart(2,"0")+":00";
+    c.appendChild(e);
+    if(h<END){
+      const half=document.createElement("div");
+      half.className="half-line";
+      half.style.top=Math.round((h-START)*CELL+CELL/2)+"px";
+      c.appendChild(half);
+    }
+  }
+  $$(".day-column").forEach(col=>{
+    col.querySelectorAll(".half-line").forEach(x=>x.remove());
+    for(let h=START;h<END;h++){
+      const half=document.createElement("div");
+      half.className="half-line";
+      half.style.top=Math.round((h-START)*CELL+CELL/2)+"px";
+      col.appendChild(half);
+    }
+  });
+  const d=new Date(),m=d.getHours()*60+d.getMinutes();
+  if(m>=START*60&&m<=END*60){
+    const e=document.createElement("div");
+    e.className="now-line";
+    e.style.top=Math.round((m-START*60)/60*CELL)+"px";
+    e.innerHTML='<span class="now-label">'+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+'</span>';
+    c.appendChild(e);
+  }
+}
+
+function eventsRender(){
+  $$(".day-column").forEach(col=>{
+    const day=+col.dataset.day;
+    col.querySelectorAll(".event").forEach(e=>e.remove());
+    events.filter(e=>+e.day===day).forEach(ev=>{
+      const st=mins(ev.start),en=mins(ev.end);
+      const top=Math.round((st-START*60)/60*CELL);
+      const height=Math.max(40,Math.round((en-st)/60*CELL));
+      const card=document.createElement("div");
+      const u=safeUrl(ev.link);
+      
+      const colorKey = ev.isBonus ? "bonus" : (COLORS.find(c=>c.key===ev.color) ? ev.color : "school");
+      card.className="event event-"+colorKey+(ev.completed?" completed":"");
+      
+      card.style.top=top+"px";
+      card.style.height=height+"px";
+      
+      card.innerHTML=
+        '<label class="complete-label" style="'+(ev.isBonus?'display:none;':'')+'"><input class="complete-checkbox" type="checkbox" '+(ev.completed?"checked":"")+'><span class="complete-mark">✓</span></label>'+
+        '<div class="event-title">'+esc(ev.title)+'</div>'+
+        '<div class="event-time">'+esc(ev.start)+'–'+esc(ev.end)+'</div>'+
+        '<div class="event-description">'+esc(ev.description)+'</div>'+
+        '<div class="event-footer">'+(u?'<a class="event-link" target="_blank" rel="noopener" href="'+esc(u)+'">Открыть</a>':'<span></span>')+(ev.repeat?'<span class="event-repeat">🔁</span>':"")+'</div>';
+      
+      if (!ev.isBonus) {
+        card.onclick=e=>{if(!e.target.closest(".complete-label,.event-link"))edit(ev.id)};
+        const cb=card.querySelector(".complete-checkbox");
+        cb.onclick=e=>e.stopPropagation();
+        cb.onchange=async(e)=>{
+          const now = new Date();
+          const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1;
+          const currentMins = now.getHours() * 60 + now.getMinutes();
+          const st = mins(ev.start);
+          
+          if (ev.day !== currentDay) {
+            e.preventDefault(); cb.checked = false;
+            alert("Эту задачу можно выполнить только в её день!"); return;
+          }
+          if (currentMins < st - 15) {
+            e.preventDefault(); cb.checked = false;
+            alert("Ещё рано! Эту задачу можно будет отметить за 15 минут до начала (" + ev.start + ")."); return;
+          }
+
+          ev.completed=cb.checked;
+          card.classList.toggle("completed",cb.checked);
+          const r=cb.getBoundingClientRect();
+          stars(r.left,r.top,cb.checked?15:7);
+          playClickSound();
+          
+          try{ await save(); updateProgress(); }
+          catch{ alert("Не удалось сохранить отметку"); }
+        };
+      } else {
+        card.onclick = (e) => { e.stopPropagation(); playClickSound(); };
+      }
+      
+      col.appendChild(card);
+    });
+  });
+}
+
+function render(){times();eventsRender();updateProgress()}
+
+function weekRender(){
+  const last=new Date(week);last.setDate(last.getDate()+6);
+  $("#weekLabel").textContent=week.getDate()+"–"+last.getDate()+" "+months[last.getMonth()];
+  $$('.day-head').forEach((h,i)=>{
+    const d=new Date(week);d.setDate(d.getDate()+i);
+    h.querySelector('.day-title').textContent=days[i]+" · "+d.getDate()+" "+months[d.getMonth()];
+    const t=d.toDateString()===new Date().toDateString();
+    h.classList.toggle("today",t);
+    $(`.day-column[data-day="${i}"]`).classList.toggle("today",t);
+  });
+}
+function shift(n){week.setDate(week.getDate()+7*n);weekRender();playClickSound()}
+
+function setColorSelect(value){
+  const sel=$("#eventColor");
+  const c=COLORS.find(x=>x.key===value)||COLORS[0];
+  sel.value=c.key;
+  sel.style.background=c.dot;
+}
+
+function openNew(day){
+  editing=null;
+  $("#modalTitle").textContent="✨ Новое занятие";
+  $("#eventTitle").value="";
+  $("#eventDescription").value="";
+  $("#eventLink").value="";
+  $("#eventDay").value=day;
+  $("#eventStart").value="09:00";
+  $("#eventEnd").value="10:00";
+  setColorSelect("school");
+  $("#eventRepeat").checked=false;
+  $("#deleteEvent").style.display="none";
+  $("#eventModal").classList.add("open");
+  playClickSound();
+}
+
+function edit(id){
+  const e=events.find(x=>x.id===id);if(!e)return;
+  editing=id;
+  $("#modalTitle").textContent="✏️ Изменить занятие";
+  $("#eventTitle").value=e.title;
+  $("#eventDescription").value=e.description||"";
+  $("#eventLink").value=e.link||"";
+  $("#eventDay").value=e.day;
+  $("#eventStart").value=e.start;
+  $("#eventEnd").value=e.end;
+  setColorSelect(e.color);
+  $("#eventRepeat").checked=!!e.repeat;
+  $("#deleteEvent").style.display="block";
+  $("#eventModal").classList.add("open");
+  playClickSound();
+}
+function close(){$("#eventModal").classList.remove("open");editing=null}
+
+async function saveForm(){
+  const title=$("#eventTitle").value.trim();
+  const description=$("#eventDescription").value.trim();
+  const link=$("#eventLink").value.trim();
+  const day=+$("#eventDay").value;
+  const start=$("#eventStart").value;
+  const end=$("#eventEnd").value;
+  const color=$("#eventColor").value;
+  const repeat=$("#eventRepeat").checked;
+  if(!title)return alert("Напиши название занятия");
+  if(mins(end)<=mins(start))return alert("Конец должен быть позже начала");
+  if(mins(start)<START*60||mins(end)>END*60)return alert("Время должно быть с 07:00 до 22:00");
+  const old=events.find(e=>e.id===editing);
+  const data={id:editing||makeId(),title,description,link,day,start,end,color,repeat,completed:old?!!old.completed:false};
+  const i=events.findIndex(e=>e.id===editing);
+  if(i>=0)events[i]=data;else events.push(data);
+  try{await save();render();close();playClickSound();}catch{alert("Не удалось сохранить расписание")}
+}
+
+async function del(){
+  if(!editing||!confirm("Удалить это занятие?"))return;
+  events=events.filter(e=>e.id!==editing);
+  try{await save();render();close();playClickSound();}catch{alert("Не удалось удалить занятие")}
+}
+
+$$('.header-plus').forEach(b=>b.onclick=e=>{
+  e.stopPropagation();
+  initAudio();
+  const r=b.getBoundingClientRect();
+  stars(r.left+r.width/2,r.top+r.height/2);
+  openNew(+b.dataset.day);
+});
+$("#prevWeek").onclick=()=>{ initAudio(); shift(-1); };
+$("#nextWeek").onclick=()=>{ initAudio(); shift(1); };
+$("#saveEvent").onclick=saveForm;
+$("#deleteEvent").onclick=del;
+$("#closeModal").onclick=()=>{close();playClickSound();};
+$("#cancelModal").onclick=()=>{close();playClickSound();};
+$("#eventModal").onclick=e=>{if(e.target.id==="eventModal")close()};
+
+document.onclick=e=>{
+  initAudio();
+  if(e.target.closest("button,input,select,textarea,a,.event,.modal-card"))return;
+  stars(e.clientX,e.clientY);
+};
+
+// === ПРЕДЗАПОЛНЕННОЕ МЕДИЦИНСКОЕ РАСПИСАНИЕ ===
+const medicalSample = [
+  {id:"med-1", title:"Утренний обход", description:"Проверка пациентов, назначения", day:0, start:"08:00", end:"09:30", color:"sky", repeat:true, completed:false},
+  {id:"med-2", title:"Приём терапевта", description:"Плановый приём, каб. 12", day:0, start:"10:00", end:"12:00", color:"aqua", repeat:true, completed:false},
+  {id:"med-3", title:"Лекция по анатомии", description:"Сердечно-сосудистая система", day:0, start:"13:00", end:"14:30", color:"creative", repeat:false, completed:false},
+  {id:"med-4", title:"Практика: измерение давления", description:"Отработка навыков", day:1, start:"09:00", end:"11:00", color:"sport", repeat:true, completed:false},
+  {id:"med-5", title:"Консультация кардиолога", description:"Пациент Петров, 14:00", day:1, start:"14:00", end:"15:00", color:"salmon", repeat:false, completed:false},
+  {id:"med-6", title:"Разбор анализов", description:"Обсуждение результатов", day:2, start:"08:30", end:"10:00", color:"lemon", repeat:true, completed:false},
+  {id:"med-7", title:"Дежурство в стационаре", description:"Вечерний обход", day:2, start:"16:00", end:"19:00", color:"violet", repeat:true, completed:false},
+  {id:"med-8", title:"Семинар: неотложная помощь", description:"Практическое занятие", day:3, start:"10:00", end:"12:30", color:"red", repeat:false, completed:false},
+  {id:"med-9", title:"Приём педиатра", description:"Дети, каб. 5", day:3, start:"13:30", end:"15:30", color:"peach", repeat:true, completed:false},
+  {id:"med-10", title:"Лабораторная работа", description:"Биохимия крови", day:4, start:"09:00", end:"11:00", color:"mint", repeat:false, completed:false},
+  {id:"med-11", title:"Обход заведующего", description:"Проверка отделения", day:4, start:"15:00", end:"16:30", color:"gold", repeat:true, completed:false},
+  {id:"med-12", title:"Санитарный день", description:"Обработка инструментов", day:5, start:"09:00", end:"10:00", color:"other", repeat:true, completed:false},
+  {id:"med-13", title:"Отдых и восстановление", description:"Прогулка, сон", day:5, start:"16:00", end:"18:00", color:"seafoam", repeat:false, completed:false},
+  {id:"med-14", title:"Изучение истории болезни", description:"Подготовка к конференции", day:6, start:"11:00", end:"13:00", color:"lavender", repeat:false, completed:false},
+  {id:"med-15", title:"Вечерний обход", description:"Контроль состояния пациентов", day:6, start:"19:00", end:"20:00", color:"cyan", repeat:true, completed:false}
+];
+
+async function start(){
+  buildColorSelect();
+  weekRender();
+  background();
+  try{await load();}catch{alert("Не удалось загрузить расписание, используются демо-данные"); events = [...medicalSample];}
+  if(!events.length) events = [...medicalSample];
+  render();
+  setInterval(times,60000);
+  setInterval(updateProgress, 60000);
+}
+start();
+</script>
+</body>
+</html>
