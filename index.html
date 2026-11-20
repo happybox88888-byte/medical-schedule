@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Медицинское расписание · Волшебный госпиталь</title>
+<title>Медицинское расписание · Чистый лист</title>
 <style>
 :root{--cell:95px;--line:#cae7f4;--navy:#29405e}
 *{box-sizing:border-box}
@@ -173,7 +173,7 @@ button{cursor:pointer}
           <button class="gift-btn" id="openSecretModal" title="Копилка бонусов">🎁</button>
         </div>
       </div>
-      <div class="app-subtitle">Учимся, лечим и становимся здоровее каждый день! 💊✨</div>
+      <div class="app-subtitle">Планируйте свои дела и следите за здоровьем! 💊✨</div>
     </div>
     <div class="week-controls">
       <button class="nav-btn" id="prevWeek">←</button>
@@ -227,7 +227,7 @@ button{cursor:pointer}
       <h2>🎁 Копилка бонусов</h2>
       <button class="close" id="closeBonus">×</button>
     </div>
-    <p style="font-size:13px; color:#666;">Добавьте приятные сюрпризы (и ссылки). Когда все задания выполнены и пройден опрос, программа случайно выберет один и добавит в расписание на 21:30.</p>
+    <p style="font-size:13px; color:#666;">Добавьте приятные сюрпризы. Когда все задания выполнены и пройден опрос, программа случайно выберет один и покажет его в поздравлении.</p>
     
     <div class="bonus-list" id="bonusList"></div>
     
@@ -291,12 +291,13 @@ button{cursor:pointer}
 
 <script>
 const START=7,END=22,CELL=95,API="/.netlify/functions/schedule";
-let events=[], editing=null, audio=null, week=new Date(2026,8,14);
+let events=[], editing=null, audio=null, week=new Date();
 let alarmInterval = null, userInteracted = false, congratsShown = false;
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const days=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
 const months=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
 
+// Бонусы по умолчанию
 let bonuses = JSON.parse(localStorage.getItem("magicBonuses") || '[{"title":"Поиграть в телефон","link":""},{"title":"Съесть мороженое","link":""},{"title":"Мультики","link":"https://youtube.com"},{"title":"Погулять в парке","link":""}]');
 
 const COLORS = [
@@ -335,7 +336,6 @@ const safeUrl=v=>{try{const u=new URL(v);return/^https?:$/.test(u.protocol)?u.hr
 
 // === ОПРОС ===
 let surveyStep = 0;
-
 function startSurvey() {
   surveyStep = 1;
   renderSurvey();
@@ -379,10 +379,9 @@ function answerSurvey(ans) {
     giveBonus();
   }
 }
-
 window.answerSurvey = answerSurvey;
 
-// === СЕКРЕТНАЯ ЛОГИКА БОНУСОВ ===
+// === БОНУСЫ ===
 $("#openSecretModal").onclick = (e) => {
   e.preventDefault();
   e.stopPropagation();
@@ -567,29 +566,14 @@ function updateProgress() {
 }
 
 function giveBonus() {
-  const now = new Date();
-  const currentDay = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  
   let bonusText = "Все задачи на день выполнены!";
   if (bonuses.length > 0) {
     const randomBonus = bonuses[Math.floor(Math.random() * bonuses.length)];
-    const bonusEvent = {
-      id: makeId(),
-      title: "🎁 Бонус: " + randomBonus.title,
-      description: "Заслуженная награда!",
-      start: "21:30", 
-      end: "22:00",   
-      day: currentDay,
-      color: "bonus",
-      isBonus: true,
-      link: randomBonus.link,
-      completed: false
-    };
-    events.push(bonusEvent);
-    save().then(() => eventsRender());
-    bonusText = `А ещё тебя ждет бонус: <br><span style="color:#d35400">${esc(randomBonus.title)}</span> (в 21:30)`;
+    bonusText = `А ещё тебя ждет бонус: <br><span style="color:#d35400">${esc(randomBonus.title)}</span>`;
+    if(randomBonus.link) {
+      bonusText += `<br><a href="${safeUrl(randomBonus.link)}" target="_blank" style="color:#1c648b; text-decoration:underline; font-size:18px; margin-top:10px; display:inline-block;">Перейти по ссылке 🔗</a>`;
+    }
   }
-  
   showCongrats(bonusText, true);
 }
 
@@ -644,8 +628,17 @@ function buildColorSelect(){
   });
 }
 
-async function load(){const r=await fetch(API);if(!r.ok)throw Error();const d=await r.json();events=Array.isArray(d.events)?d.events:[]}
-async function save(){const r=await fetch(API,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({events})});if(!r.ok)throw Error()}
+async function load() {
+  const r = await fetch(API);
+  if (!r.ok) throw Error();
+  const d = await r.json();
+  // Загружаем ровно то, что пришло с сервера. Если пусто - будет пусто.
+  events = Array.isArray(d.events) ? d.events : [];
+}
+async function save() {
+  const r = await fetch(API, {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify({events})});
+  if (!r.ok) throw Error();
+}
 
 function stars(x,y,n=14){const l=$("#starLayer"),c=["#ffd64b","#ff9f43","#6ad8ff","#c7b1ff","#ff8bb5"],s=["★","✦","✧","🌟"];for(let i=0;i<n;i++){const a=2*Math.PI*i/n,d=30+Math.random()*50,e=document.createElement("span");e.className="click-star";e.textContent=s[i%4];e.style.left=x+"px";e.style.top=y+"px";e.style.setProperty("--x",Math.cos(a)*d+"px");e.style.setProperty("--y",Math.sin(a)*d+"px");e.style.setProperty("--color",c[i%c.length]);e.style.setProperty("--size",14+Math.random()*13+"px");l.appendChild(e);setTimeout(()=>e.remove(),900)}}
 
@@ -848,31 +841,17 @@ document.onclick=e=>{
   stars(e.clientX,e.clientY);
 };
 
-// === ПРЕДЗАПОЛНЕННОЕ МЕДИЦИНСКОЕ РАСПИСАНИЕ ===
-const medicalSample = [
-  {id:"med-1", title:"Утренний обход", description:"Проверка пациентов, назначения", day:0, start:"08:00", end:"09:30", color:"sky", repeat:true, completed:false},
-  {id:"med-2", title:"Приём терапевта", description:"Плановый приём, каб. 12", day:0, start:"10:00", end:"12:00", color:"aqua", repeat:true, completed:false},
-  {id:"med-3", title:"Лекция по анатомии", description:"Сердечно-сосудистая система", day:0, start:"13:00", end:"14:30", color:"creative", repeat:false, completed:false},
-  {id:"med-4", title:"Практика: измерение давления", description:"Отработка навыков", day:1, start:"09:00", end:"11:00", color:"sport", repeat:true, completed:false},
-  {id:"med-5", title:"Консультация кардиолога", description:"Пациент Петров, 14:00", day:1, start:"14:00", end:"15:00", color:"salmon", repeat:false, completed:false},
-  {id:"med-6", title:"Разбор анализов", description:"Обсуждение результатов", day:2, start:"08:30", end:"10:00", color:"lemon", repeat:true, completed:false},
-  {id:"med-7", title:"Дежурство в стационаре", description:"Вечерний обход", day:2, start:"16:00", end:"19:00", color:"violet", repeat:true, completed:false},
-  {id:"med-8", title:"Семинар: неотложная помощь", description:"Практическое занятие", day:3, start:"10:00", end:"12:30", color:"red", repeat:false, completed:false},
-  {id:"med-9", title:"Приём педиатра", description:"Дети, каб. 5", day:3, start:"13:30", end:"15:30", color:"peach", repeat:true, completed:false},
-  {id:"med-10", title:"Лабораторная работа", description:"Биохимия крови", day:4, start:"09:00", end:"11:00", color:"mint", repeat:false, completed:false},
-  {id:"med-11", title:"Обход заведующего", description:"Проверка отделения", day:4, start:"15:00", end:"16:30", color:"gold", repeat:true, completed:false},
-  {id:"med-12", title:"Санитарный день", description:"Обработка инструментов", day:5, start:"09:00", end:"10:00", color:"other", repeat:true, completed:false},
-  {id:"med-13", title:"Отдых и восстановление", description:"Прогулка, сон", day:5, start:"16:00", end:"18:00", color:"seafoam", repeat:false, completed:false},
-  {id:"med-14", title:"Изучение истории болезни", description:"Подготовка к конференции", day:6, start:"11:00", end:"13:00", color:"lavender", repeat:false, completed:false},
-  {id:"med-15", title:"Вечерний обход", description:"Контроль состояния пациентов", day:6, start:"19:00", end:"20:00", color:"cyan", repeat:true, completed:false}
-];
-
+// === СТАРТ (БЕЗ ДЕМО-ДАННЫХ) ===
 async function start(){
   buildColorSelect();
   weekRender();
   background();
-  try{await load();}catch{alert("Не удалось загрузить расписание, используются демо-данные"); events = [...medicalSample];}
-  if(!events.length) events = [...medicalSample];
+  try{
+    await load(); 
+  }catch(e){
+    console.warn("Не удалось загрузить данные. Стартуем с пустого расписания.");
+    events = [];
+  }
   render();
   setInterval(times,60000);
   setInterval(updateProgress, 60000);
